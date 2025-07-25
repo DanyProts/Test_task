@@ -1,6 +1,5 @@
 from aiogram import Bot, Dispatcher
-from routes.start import start_router
-from routes.manage_channel import manage_channel
+from routes import start_router, manage_channel
 from core.config import settings
 import asyncio
 
