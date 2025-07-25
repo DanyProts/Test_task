@@ -7,6 +7,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup
 )
+from db import get_db, change_active_status
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from storage.channel_store import add_channel, remove_channel, list_channels, has_channels
@@ -21,11 +22,19 @@ async def manage_channels(msg: Message) -> Coroutine[Any, Any, None]:
     await msg.answer(text_get.t("menu.prompt"), reply_markup=menu_keyboard)
 
 
-@manage_channel.message(F.text == text_get.t("menu.add"))
-async def ask_channel_add(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
-    await msg.answer(text_get.t("menu.add_prompt"), reply_markup=ReplyKeyboardRemove())
-    await state.set_state(ChannelStates.adding)
+@manage_channel.message(lambda message: message.text == text_get.t("menu.add"))
+async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
+    async for session in get_db():
+        await change_active_status(
+            user_id=message.from_user.id,
+            session=session
+        )
 
+    await message.answer(
+        text_get.t("menu.add_prompt"),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await state.set_state(ChannelStates.adding)
 
 @manage_channel.message(ChannelStates.adding)
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
