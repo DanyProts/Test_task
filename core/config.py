@@ -1,9 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class BotConfig(BaseModel):
     token: str
-
+class DatabaseConfig(BaseModel):
+    url: PostgresDsn
+    echo:bool = False
+    echo_pool: bool = False
+    pool_size : int = 50
+    max_overflow: int = 20
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env.template",".env"),
@@ -11,6 +16,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         
     )
+    db: DatabaseConfig
     bot_token: BotConfig
     
 settings = Settings()
