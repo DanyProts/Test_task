@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.models.schemas import User
+from db.models import User
 
 async def get_or_create_user(user_id: int, first_name: str, session: AsyncSession) -> User:
     result = await session.execute(select(User).where(User.user_id == user_id))

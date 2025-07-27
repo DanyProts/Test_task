@@ -1,1 +1,1 @@
-from .schemas import User, Channel
+from .schemas import User, Channel, UserChannel, AddChannelResult

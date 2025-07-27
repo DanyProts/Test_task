@@ -7,9 +7,12 @@
   "menu.prompt": "Выбери действие:",
   "menu.empty": "Список каналов пуст.",
   "menu.added": "Канал @{name} добавлен ✅",
+  "menu.added.error":"Прозошла ошибка во время добавления канала @{name}, попробуйте снова через некоторое время!",
+  "menu.added.error.channel_ready":"Канал @{name} уже в работе!",
   "menu.removed": "Канал @{name} удалён ❌",
   "menu.not_found": "Ошибка: канал не найден.",
   "menu.add_prompt": "Пришли username канала (без @):",
   "menu.remove_prompt": "Выбери канал для удаления:",
-  "menu.list_header": "Слежу за:\n{channels}"
+  "menu.list_header": "Слежу за:\n{channels}",
+  "menu.removed.error":"Произошла ошибка при удалении канала. Попробуйте позже."
 }
