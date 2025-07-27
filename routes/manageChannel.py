@@ -11,7 +11,6 @@ from db.models import AddChannelResult
 from db import get_db, change_active_status, add_user_channel, get_user_channels, remove_user_channel
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
-from storage.channel_store import list_channels
 from text_batton import text_get, menu_keyboard
 
 
@@ -41,7 +40,10 @@ async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any,
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
     async for session in get_db():
         result = await add_user_channel(msg.from_user.id, msg.text.strip(), session)
-
+        await change_active_status(
+            user_id=msg.from_user.id,
+            session=session
+        )
         match result:
             case AddChannelResult.SUCCESS:
                 await msg.answer(text_get.t("menu.added",name = msg.text.strip()),reply_markup=menu_keyboard)
@@ -60,6 +62,10 @@ async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, N
 @manage_channel.message(F.text == text_get.t("menu.remove"))
 async def ask_channel_remove(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
     async for session in get_db():
+        await change_active_status(
+            user_id=msg.from_user.id,
+            session=session
+        )
         channels = await get_user_channels(user_id=msg.from_user.id, session=session)
         if not channels:
             await msg.answer(text_get.t("menu.empty"))
@@ -79,6 +85,10 @@ async def handle_channel_remove(cbq: CallbackQuery):
     channel_name = cbq.data.split("remove:")[1]
 
     async for session in get_db():
+        await change_active_status(
+            user_id=cbq.from_user.id,
+            session=session
+        )
         result = await remove_user_channel(
             user_id=cbq.from_user.id,
             channel_name=channel_name,
