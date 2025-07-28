@@ -12,6 +12,7 @@ from db import get_db, change_active_status, add_user_channel, get_user_channels
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from text_batton import text_get, menu_keyboard
+from Telethon import client, ChannelAccessStatus, check_channel_access
 
 
 manage_channel = Router()
@@ -38,25 +39,29 @@ async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any,
 
 @manage_channel.message(ChannelStates.adding)
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
-    async for session in get_db():
-        result = await add_user_channel(msg.from_user.id, msg.text.strip(), session)
-        await change_active_status(
-            user_id=msg.from_user.id,
-            session=session
-        )
-        match result:
-            case AddChannelResult.SUCCESS:
-                await msg.answer(text_get.t("menu.added",name = msg.text.strip()),reply_markup=menu_keyboard)
-                
-            case AddChannelResult.RELATION_EXISTS:
-                await msg.answer(text_get.t("menu.added.error.channel_ready",name = msg.text.strip()),reply_markup=menu_keyboard)
-                
-            case AddChannelResult.USER_NOT_FOUND:
-                print("Пользователь не найден")
-                
-            case _:
-                await msg.answer(text_get.t("menu.added.error",name = msg.text.strip()),reply_markup=menu_keyboard)
-        await state.clear()
+    check_add_possibilities = await check_channel_access(client= client, channel_identifier= msg.text.strip())
+    if check_add_possibilities["status"] == ChannelAccessStatus.SUCCESS:
+        async for session in get_db():
+            result = await add_user_channel(msg.from_user.id, msg.text.strip(), session)
+            await change_active_status(
+                user_id=msg.from_user.id,
+                session=session
+            )
+            match result:
+                case AddChannelResult.SUCCESS:
+                    await msg.answer(text_get.t("menu.added",name = msg.text.strip()),reply_markup=menu_keyboard)
+                    
+                case AddChannelResult.RELATION_EXISTS:
+                    await msg.answer(text_get.t("menu.added.error.channel_ready",name = msg.text.strip()),reply_markup=menu_keyboard)
+                    
+                case AddChannelResult.USER_NOT_FOUND:
+                    print("Пользователь не найден")
+                    
+                case _:
+                    await msg.answer(text_get.t("menu.added.error",name = msg.text.strip()),reply_markup=menu_keyboard)
+            await state.clear()
+    else:
+        await msg.answer(check_add_possibilities["error"],name = msg.text.strip(),reply_markup=menu_keyboard)
 
 
 @manage_channel.message(F.text == text_get.t("menu.remove"))

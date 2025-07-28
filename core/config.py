@@ -3,6 +3,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class BotConfig(BaseModel):
     token: str
+
+class TelethonConfig(BaseModel):
+    api_id: int
+    api_hash:str
 class DatabaseConfig(BaseModel):
     url: PostgresDsn
     echo:bool = False
@@ -18,5 +22,6 @@ class Settings(BaseSettings):
     )
     db: DatabaseConfig
     bot_token: BotConfig
+    telethon_set: TelethonConfig
     
 settings = Settings()
