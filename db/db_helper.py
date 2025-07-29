@@ -24,6 +24,7 @@ class DatabaseHelper:
             expire_on_commit = False,
         )
     async def dispose(self) -> None:
+        print("dispose close!")
         await self.engine.dispose()
     
     async def session_getter(self) -> AsyncGenerator[AsyncSession, None]:

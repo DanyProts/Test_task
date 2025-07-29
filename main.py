@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.types import Update
@@ -8,7 +9,8 @@ from core import settings
 from db import db_helper
 from routes import start_router, manage_channel
 
-
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 bot = Bot(
     token=str(settings.bot_token.token),
@@ -21,12 +23,14 @@ dp.include_router(manage_channel)
 
 async def main():
     await client.start()
+    
     try:
         await dp.start_polling(
             bot,
             allowed_updates=Update.model_fields.keys(),
             skip_updates=True,
         )
+        
     finally:
         await client.disconnect()
         await db_helper.dispose()

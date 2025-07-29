@@ -1,5 +1,4 @@
-from enum import Enum, auto
-from sqlalchemy import BigInteger, Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, ForeignKey, Integer, String, Text, Enum
 from sqlalchemy.orm import relationship, declarative_base
 
 
@@ -19,11 +18,17 @@ class User(Base):
         back_populates="users"
     )
 
+
 class Channel(Base):
-    __tablename__ = "channel_list"  
+    __tablename__ = "channel_list"
+
+    channel_id = Column(BigInteger, primary_key=True)  
+    channel_name = Column(String, nullable=False)      
+    channel_username = Column(String, nullable=True)   
+    channel_url = Column(Text, nullable=False)         
+    status = Column(Text, nullable=False)  
+
     
-    channel_id = Column(Integer, primary_key=True)
-    channel_name = Column(String, nullable=False)  
     users = relationship(
         "User",
         secondary="user_channels",
@@ -36,9 +41,3 @@ class UserChannel(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), primary_key=True)
     channel_id = Column(Integer, ForeignKey("channel_list.channel_id"), primary_key=True)
 
-class AddChannelResult(Enum):
-    SUCCESS = auto()             
-    RELATION_EXISTS = auto()     
-    USER_NOT_FOUND = auto()      
-    CHANNEL_NOT_FOUND = auto()  
-    OTHER_ERROR = auto()   

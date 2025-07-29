@@ -7,7 +7,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup
 )
-from db.models import AddChannelResult
+from db import AddChannelResult
 from db import get_db, change_active_status, add_user_channel, get_user_channels, remove_user_channel
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
@@ -39,33 +39,42 @@ async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any,
 
 @manage_channel.message(ChannelStates.adding)
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
-    check_add_possibilities = await check_channel_access(client= client, channel_identifier= msg.text.strip())
-    if check_add_possibilities["status"] == ChannelAccessStatus.SUCCESS:
+    channel_info = await check_channel_access(client= client, channel_identifier= msg.text.strip())
+    if channel_info["access_status"] == ChannelAccessStatus.SUCCESS:
         async for session in get_db():
-            result = await add_user_channel(msg.from_user.id, msg.text.strip(), session)
+            result = await add_user_channel(
+                user_id= msg.from_user.id, 
+                channel_id= channel_info["channel_id"],
+                channel_name= channel_info["channel_name"], 
+                channel_username= channel_info["channel_username"],
+                channel_url= channel_info["channel_url"],
+                status= channel_info["channel_status"],
+                session= session
+                )
             await change_active_status(
                 user_id=msg.from_user.id,
                 session=session
             )
             match result:
                 case AddChannelResult.SUCCESS:
-                    await msg.answer(text_get.t("menu.added",name = msg.text.strip()),reply_markup=menu_keyboard)
+                    await msg.answer(text_get.t("menu.added",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
                     
                 case AddChannelResult.RELATION_EXISTS:
-                    await msg.answer(text_get.t("menu.added.error.channel_ready",name = msg.text.strip()),reply_markup=menu_keyboard)
+                    await msg.answer(text_get.t("menu.added.error.channel_ready",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
                     
                 case AddChannelResult.USER_NOT_FOUND:
                     print("Пользователь не найден")
                     
                 case _:
-                    await msg.answer(text_get.t("menu.added.error",name = msg.text.strip()),reply_markup=menu_keyboard)
+                    await msg.answer(text_get.t("menu.added.error",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
             await state.clear()
     else:
-        await msg.answer(check_add_possibilities["error"],name = msg.text.strip(),reply_markup=menu_keyboard)
+        await msg.answer(channel_info["error"], reply_markup=menu_keyboard)
+        await state.clear()
 
 
 @manage_channel.message(F.text == text_get.t("menu.remove"))
-async def ask_channel_remove(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
+async def ask_channel_remove(msg: Message) -> Coroutine[Any, Any, None]:
     async for session in get_db():
         await change_active_status(
             user_id=msg.from_user.id,
@@ -123,6 +132,6 @@ async def list_channels_handler(msg: Message) -> Coroutine[Any, Any, None]:
         if succes == []:
             await msg.answer(text_get.t("menu.empty"))
         else:
-            result = "\n".join(f"@{c}" for c in succes)
+            result = "\n".join(f"{i+1}) {c}" for i,c in enumerate(succes))
             await msg.answer(text_get.t("menu.list_header", channels=result))
 
