@@ -39,5 +39,5 @@ class UserChannel(Base):
     __tablename__ = "user_channels"
     
     user_id = Column(BigInteger, ForeignKey("users.user_id"), primary_key=True)
-    channel_id = Column(Integer, ForeignKey("channel_list.channel_id"), primary_key=True)
+    channel_id = Column(BigInteger, ForeignKey("channel_list.channel_id"), primary_key=True)
 

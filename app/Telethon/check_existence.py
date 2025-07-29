@@ -64,11 +64,15 @@ async def check_channel_access(client: TelegramClient, channel_identifier: str) 
             result["error"] = "Указанный объект не является каналом."
             return result
 
-        result["channel_id"] = entity.id
+        # Исправлено: гарантированно возвращаем ID с префиксом -100 для каналов
+        channel_id = entity.id
+        if isinstance(entity, Channel) and not str(channel_id).startswith('-100'):
+            channel_id = int(f"-100{channel_id}")
+            
+        result["channel_id"] = channel_id
         result["channel_name"] = entity.title
-        result["channel_username"] = entity.username
 
-        logging.info(f"Канал получен: {entity.title} (ID: {entity.id})")
+        logging.info(f"Канал получен: {entity.title} (ID: {channel_id})")
 
         try:
             await client(JoinChannelRequest(entity))
