@@ -4,7 +4,7 @@ import logging
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.types import Channel
-from Telethon import ChannelAccessStatus
+from .schemas import ChannelAccessStatus
 import re
 from telethon.errors import UserAlreadyParticipantError
 

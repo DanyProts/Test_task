@@ -12,7 +12,7 @@ from db import get_db, change_active_status, add_user_channel, get_user_channels
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from text_batton import text_get, menu_keyboard
-from Telethon import client, ChannelAccessStatus, check_channel_access
+from telethon_api import check_channel_access_http
 
 
 manage_channel = Router()
@@ -39,8 +39,8 @@ async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any,
 
 @manage_channel.message(ChannelStates.adding)
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
-    channel_info = await check_channel_access(client= client, channel_identifier= msg.text.strip())
-    if channel_info["access_status"] == ChannelAccessStatus.SUCCESS:
+    channel_info = await check_channel_access_http(channel_identifier= msg.text.strip())
+    if channel_info["access_status"] == "SUCCESS":
         async for session in get_db():
             result = await add_user_channel(
                 user_id= msg.from_user.id, 
