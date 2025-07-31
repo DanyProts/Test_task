@@ -134,20 +134,13 @@ async def handle_added_to_channel(event: ChatMemberUpdated, bot: Bot) -> None:
     if chat.type != ChatType.CHANNEL:
         return
 
-    old_status: str = event.old_chat_member.status
-    new_status: str = event.new_chat_member.status
+    old_status = event.old_chat_member.status
+    new_status = event.new_chat_member.status
 
-    if old_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED] and \
-       new_status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
+    is_private = chat.username is None
+    can_read = new_status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
 
-        try:
-            bot_member = await bot.get_chat_member(chat.id, bot.id)
-            can_read = bot_member.status in ["administrator", "creator"]
-        except Exception:
-            can_read = False
-
-        is_private = chat.username is None
-
+    if old_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED] and can_read:
         async for session in get_db():
             new_channel = Channel(
                 channel_id=chat.id,
