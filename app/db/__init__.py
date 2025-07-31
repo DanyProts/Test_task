@@ -3,6 +3,7 @@ from .session import get_db
 from .crud.user_crud import get_or_create_user, change_active_status
 from .crud.channel_crud import add_user_channel, get_user_channels, remove_user_channel
 from .crud.schemas import AddChannelResult
+from .models import Channel
 __all__ = [
     "db_helper", 
     "get_db", 
@@ -11,5 +12,6 @@ __all__ = [
     "add_user_channel", 
     "get_user_channels", 
     "remove_user_channel",
-    "AddChannelResult"
+    "AddChannelResult",
+    "Channel"
            ]

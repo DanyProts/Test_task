@@ -1,18 +1,20 @@
 from typing import Coroutine, Any
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
     InlineKeyboardButton,
     CallbackQuery,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
+    ChatMemberUpdated
 )
-from db import AddChannelResult
-from db import get_db, change_active_status, add_user_channel, get_user_channels, remove_user_channel
+from aiogram.enums import ChatMemberStatus, ChatType
+from db import AddChannelResult, Channel
+from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from text_batton import text_get, menu_keyboard
-from telethon_api import check_channel_access_http
+from sqlalchemy import delete
 
 
 manage_channel = Router()
@@ -39,38 +41,28 @@ async def ask_channel_add(message: Message, state: FSMContext) -> Coroutine[Any,
 
 @manage_channel.message(ChannelStates.adding)
 async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, None]:
-    channel_info = await check_channel_access_http(channel_identifier= msg.text.strip())
-    if channel_info["access_status"] == "SUCCESS":
-        async for session in get_db():
-            result = await add_user_channel(
-                user_id= msg.from_user.id, 
-                channel_id= channel_info["channel_id"],
-                channel_name= channel_info["channel_name"], 
-                channel_username= channel_info["channel_username"],
-                channel_url= channel_info["channel_url"],
-                status= channel_info["channel_status"],
-                session= session
+    async for session in get_db():
+        result = await add_user_channel(session, msg.from_user.id, msg.text)
+
+        match result["status"]:
+            case "added":
+                await msg.answer(
+                    text_get.t("menu.added", name=result["channel_name"]),
+                    reply_markup=menu_keyboard
                 )
-            await change_active_status(
-                user_id=msg.from_user.id,
-                session=session
-            )
-            match result:
-                case AddChannelResult.SUCCESS:
-                    await msg.answer(text_get.t("menu.added",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
-                    
-                case AddChannelResult.RELATION_EXISTS:
-                    await msg.answer(text_get.t("menu.added.error.channel_ready",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
-                    
-                case AddChannelResult.USER_NOT_FOUND:
-                    print("Пользователь не найден")
-                    
-                case _:
-                    await msg.answer(text_get.t("menu.added.error",name = channel_info["channel_name"]),reply_markup=menu_keyboard)
-            await state.clear()
-    else:
-        await msg.answer(channel_info["error"], reply_markup=menu_keyboard)
-        await state.clear()
+            case "exists":
+                await msg.answer(
+                    text_get.t("menu.added.error.channel_ready", name=result["channel_name"]),
+                    reply_markup=menu_keyboard
+                )
+            case "error":
+                await msg.answer(
+                    result["message"],
+                    reply_markup=menu_keyboard
+                )
+
+    await state.clear()
+   
 
 
 @manage_channel.message(F.text == text_get.t("menu.remove"))
@@ -135,3 +127,41 @@ async def list_channels_handler(msg: Message) -> Coroutine[Any, Any, None]:
             result = "\n".join(f"{i+1}) {c}" for i,c in enumerate(succes))
             await msg.answer(text_get.t("menu.list_header", channels=result))
 
+@manage_channel.my_chat_member()
+async def handle_added_to_channel(event: ChatMemberUpdated, bot: Bot) -> None:
+    chat = event.chat
+
+    if chat.type != ChatType.CHANNEL:
+        return
+
+    old_status: str = event.old_chat_member.status
+    new_status: str = event.new_chat_member.status
+
+    if old_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED] and \
+       new_status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
+
+        try:
+            bot_member = await bot.get_chat_member(chat.id, bot.id)
+            can_read = bot_member.status in ["administrator", "creator"]
+        except Exception:
+            can_read = False
+
+        is_private = chat.username is None
+
+        async for session in get_db():
+            new_channel = Channel(
+                channel_id=chat.id,
+                channel_name=chat.title,
+                channel_username=chat.username,
+                channel_url=f"https://t.me/{chat.username}" if chat.username else None,
+                is_private=is_private,
+                can_read_posts=can_read
+            )
+            session.add(new_channel)
+            await session.commit()
+
+    elif new_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]:
+        async for session in get_db():
+            stmt = delete(Channel).where(Channel.channel_id == chat.id)
+            await session.execute(stmt)
+            await session.commit()

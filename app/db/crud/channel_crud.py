@@ -5,6 +5,7 @@ from db.models import User, Channel, UserChannel
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from db.crud.schemas import AddChannelResult
+import re
 
 
 
@@ -13,87 +14,41 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def add_user_channel(
-    user_id: int,
-    channel_id: int,
-    channel_name: str,
-    channel_username: str | None,
-    channel_url: str,
-    status: str,
-    session: AsyncSession
-) -> AddChannelResult:
-    logger.info(f"[add_user_channel] Запущено добавление канала для пользователя {user_id}")
-    logger.debug(f"[add_user_channel] Входные данные: channel_id={channel_id}, name={channel_name}, username={channel_username}, url={channel_url}, status={status}")
+async def add_user_channel(session: AsyncSession, user_id: int, user_input: str) -> dict:
+    
+    CHANNEL_LINK_PATTERN = re.compile(r"^https://t\.me/[\w\d_+/=-]+$")
+    user_input = user_input.strip()
+    is_link = bool(CHANNEL_LINK_PATTERN.match(user_input))
 
-    try:
-        user = await session.get(User, user_id)
-        if not user:
-            logger.warning(f"[add_user_channel] Пользователь с id={user_id} не найден.")
-            return AddChannelResult.USER_NOT_FOUND
-
-        existing_channel = await session.scalar(
-            select(Channel).where(Channel.channel_id == channel_id)
+    if is_link:
+        stmt = select(Channel).where(Channel.channel_url == user_input)
+    else:
+        cleaned_input = user_input.replace("@", "")
+        stmt = select(Channel).where(
+            (Channel.channel_username.ilike(cleaned_input)) |
+            (Channel.channel_name.ilike(f"%{cleaned_input}%"))
         )
 
-        if not existing_channel:
-            logger.info(f"[add_user_channel] Канал не найден в базе. Добавляем новый канал: {channel_name}")
-            new_channel = Channel(
-                channel_id=channel_id,
-                channel_name=channel_name,
-                channel_username=channel_username,
-                channel_url=channel_url,
-                status=status
-            )
-            session.add(new_channel)
-            await session.flush()
-        else:
-            logger.info(f"[add_user_channel] Канал с id={channel_id} уже существует. Проверяем необходимость обновления...")
-            updated = False
-            if (
-                existing_channel.channel_name != channel_name
-                or existing_channel.channel_username != channel_username
-                or existing_channel.channel_url != channel_url
-                or existing_channel.status != status
-            ):
-                logger.info(f"[add_user_channel] Обновляем данные канала: {channel_name}")
-                existing_channel.channel_name = channel_name
-                existing_channel.channel_username = channel_username
-                existing_channel.channel_url = channel_url
-                existing_channel.status = status
-                updated = True
+    result = await session.execute(stmt)
+    channel = result.scalar_one_or_none()
 
-            if updated:
-                await session.flush()
+    if not channel:
+        return {"status": "error", "message": "Канал не найден."}
 
-        
-        stmt = (
-            insert(UserChannel)
-            .values(user_id=user_id, channel_id=channel_id)
-            .on_conflict_do_nothing()
-        )
-        result = await session.execute(stmt)
+    relation_stmt = select(UserChannel).where(
+        (UserChannel.user_id == user_id) &
+        (UserChannel.channel_id == channel.channel_id)
+    )
+    relation_result = await session.execute(relation_stmt)
 
-        if result.rowcount > 0:
-            logger.info(f"[add_user_channel] Связь пользователь-канал добавлена. Обновляем счётчик каналов пользователя.")
-            user.count_channel += 1
-            await session.commit()
-            return AddChannelResult.SUCCESS
+    if relation_result.scalar_one_or_none():
+        return {"status": "exists", "channel_name": channel.channel_name}
 
-        logger.info(f"[add_user_channel] Связь уже существует. Завершаем без изменений.")
-        await session.commit()
-        return AddChannelResult.RELATION_EXISTS
+    new_relation = UserChannel(user_id=user_id, channel_id=channel.channel_id)
+    session.add(new_relation)
+    await session.commit()
 
-    except IntegrityError as e:
-        await session.rollback()
-        logger.error(f"[add_user_channel] IntegrityError: {e}")
-        if "user_id" in str(e):
-            return AddChannelResult.USER_NOT_FOUND
-        return AddChannelResult.OTHER_ERROR
-
-    except Exception as e:
-        await session.rollback()
-        logger.exception(f"[add_user_channel] Неизвестная ошибка: {e}")
-        return AddChannelResult.OTHER_ERROR
+    return {"status": "added", "channel_name": channel.channel_name}
 
 
 

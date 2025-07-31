@@ -25,8 +25,11 @@ class Channel(Base):
     channel_id = Column(BigInteger, primary_key=True)  
     channel_name = Column(String, nullable=False)      
     channel_username = Column(String, nullable=True)   
-    channel_url = Column(Text, nullable=False)         
-    status = Column(Text, nullable=False)  
+    channel_url = Column(Text, nullable=True)
+
+    is_private = Column(Boolean, default=False, nullable=False)
+    can_read_posts = Column(Boolean, default=False, nullable=False)      
+    
 
     
     users = relationship(
