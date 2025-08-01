@@ -1,10 +1,7 @@
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
+from core import bot, dp
 from aiogram.types import Update
-from aiogram.client.default import DefaultBotProperties
-from core import settings
 from db import db_helper
 from routes import start_router, manage_channel
 from fastapi import FastAPI
@@ -15,12 +12,9 @@ from routes import api_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-bot = Bot(
-    token=str(settings.bot_token.token),
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
 
-dp = Dispatcher()
+
+
 dp.include_router(start_router)
 dp.include_router(manage_channel)
 

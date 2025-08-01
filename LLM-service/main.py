@@ -1,11 +1,9 @@
 import logging
-import asyncio
+from db import db_helper
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from telethon import TelegramClient
 from core import settings
-from crud import check_channel_access
-from crud import ChannelAccessStatus
 import uvicorn
 
 app = FastAPI()
@@ -23,22 +21,21 @@ class ChannelRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    await client.start()
-    logging.info("Telethon клиент успешно запущен")
+    logging.info("Сервер успешно запущен")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await client.disconnect()
-    logging.info("Telethon клиент отключён")
+    await db_helper.dispose()
+    logging.info("Клиент отключён от БД")
 
 @app.post("/channel_check")
 async def check_channel_endpoint(data: ChannelRequest):
-    result = await check_channel_access(client, data.channel_identifier)
+    #result = await check_channel_access(client, data.channel_identifier)
 
-    if isinstance(result["access_status"], ChannelAccessStatus):
-        result["access_status"] = result["access_status"].value
-
-    return result
+    #шf isinstance(result["access_status"], ChannelAccessStatus):
+        #result["access_status"] = result["access_status"].value
+    temp = {"text":f"Текст поста({data.channel_identifier}) обработан "}
+    return temp
 
 
 if __name__ == "__main__":

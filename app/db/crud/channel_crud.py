@@ -114,3 +114,13 @@ async def remove_user_channel(
     except Exception:
         await session.rollback()
         return AddChannelResult.OTHER_ERROR
+    
+async def get_users_by_channel(session: AsyncSession, channel_id: int) -> List[int]:
+    try:
+        result = await session.execute(
+            select(UserChannel.user_id).where(UserChannel.channel_id == channel_id)
+        )
+        return [row[0] for row in result.all()]
+    except Exception as e:
+        print(f"Ошибка при поиске пользователей канала {channel_id}: {e}")
+        return []

@@ -1,5 +1,6 @@
 from typing import Coroutine, Any
 from aiogram import Router, F, Bot
+from core import bot
 from aiogram.types import (
     Message,
     ReplyKeyboardRemove,
@@ -10,15 +11,16 @@ from aiogram.types import (
 )
 from aiogram.enums import ChatMemberStatus, ChatType
 from db import AddChannelResult, Channel
-from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel
+from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel, get_users_by_channel
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from text_batton import text_get, menu_keyboard
 from sqlalchemy import delete
-
+from llm_connection import review_post, send_bulk_message
+import logging
 
 manage_channel = Router()
-
+logger = logging.getLogger(__name__)
 
 @manage_channel.message(F.text == text_get.t("menu.manage"))
 async def manage_channels(msg: Message) -> Coroutine[Any, Any, None]:
@@ -138,8 +140,8 @@ async def handle_added_to_channel(event: ChatMemberUpdated, bot: Bot) -> None:
     new_status = event.new_chat_member.status
 
     is_private = chat.username is None
-    can_read = new_status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
-
+    can_read = new_status in [ChatMemberStatus.ADMINISTRATOR,  ChatMemberStatus.CREATOR]
+    
     if old_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED] and can_read:
         async for session in get_db():
             new_channel = Channel(
@@ -158,3 +160,14 @@ async def handle_added_to_channel(event: ChatMemberUpdated, bot: Bot) -> None:
             stmt = delete(Channel).where(Channel.channel_id == chat.id)
             await session.execute(stmt)
             await session.commit()
+
+@manage_channel.channel_post()
+async def handle_channel_post(post: Message):
+    text = post.text
+    id = post.chat.id
+    LLM_response = await review_post(post_text=text) 
+    async for session in get_db():
+        user_ids = await get_users_by_channel(session= session, channel_id= id)
+        await send_bulk_message(bot= bot,user_ids= user_ids, text= LLM_response)
+        logger.info(f"Выполнена рассылка пользователям успешно!")
+
