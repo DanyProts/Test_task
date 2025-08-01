@@ -1,8 +1,8 @@
 from __future__ import annotations
 from yandex_cloud_ml_sdk import YCloudML
 from core import settings
-import time
-from model_message import messages
+from yandex_gpt.model_message import messages
+from copy import deepcopy
 
 sdk = YCloudML(
         folder_id=str(settings.llm_set.folder_id),
@@ -11,23 +11,22 @@ sdk = YCloudML(
 
 
 
-def get_answer(): 
-    start_time = time.time()
+def get_answer(text_post: str) -> str:
+    local_message = deepcopy(messages)
+
+    local_message.append({
+        "role": "user",
+        "text":  text_post
+    })
 
     model = sdk.models.completions("yandexgpt")
-
-    operation = model.configure(temperature=0.5).run_deferred(messages)
+    operation = model.configure(temperature=0.5).run_deferred(local_message)
+    
+    
     result = operation.wait()
-
-    end_time = time.time()
-
-    execute_time = end_time-start_time
-
-    print(f"ОТВЕТ МОДЕЛИ: {result.alternatives[0].text}")
-    print(f"Время выполнения {execute_time:.2f} секунд!")
-
-
+    print(type(result.alternatives[0].text))
+    return result.alternatives[0].text
     
 
 
-get_answer()
+    
