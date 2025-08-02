@@ -1,8 +1,6 @@
 import httpx
-from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 import logging
-from typing import List
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +22,3 @@ async def review_post(post_text: str) -> str:
         logger.error(f"Сетевой сбой при проверке поста: {e}")
         return {"access_status": "ERROR", "error": f"Сетевой сбой: {str(e)}"}
 
-async def send_bulk_message(bot: Bot, user_ids: List[int], text: str) -> None:
-    for user_id in user_ids:
-        try:
-            await bot.send_message(chat_id=user_id, text=text)
-            logger.info(f"Сообщение успешно отправлено пользователю {user_id}")
-        except TelegramForbiddenError:
-            logger.warning(f"Бот заблокирован пользователем {user_id} или нет разрешения писать.")
-        except TelegramBadRequest as e:
-            logger.warning(f"Ошибка TelegramBadRequest при отправке {user_id}: {e}")
-        except Exception as e:
-            logger.exception(f"Непредвиденная ошибка при отправке пользователю {user_id}: {e}")

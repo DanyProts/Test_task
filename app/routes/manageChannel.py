@@ -10,13 +10,13 @@ from aiogram.types import (
     ChatMemberUpdated
 )
 from aiogram.enums import ChatMemberStatus, ChatType
-from db import AddChannelResult, Channel
-from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel, get_users_by_channel
+from db import AddChannelResult
+from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel, get_users_by_channel, add_channel, delete_channel
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
+from notify import send_bulk_message, notify_users_remove, get_user_id
 from text_batton import text_get, menu_keyboard
-from sqlalchemy import delete
-from llm_connection import review_post, send_bulk_message
+from llm_connection import review_post
 import logging
 
 manage_channel = Router()
@@ -144,22 +144,19 @@ async def handle_added_to_channel(event: ChatMemberUpdated, bot: Bot) -> None:
     
     if old_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED] and can_read:
         async for session in get_db():
-            new_channel = Channel(
-                channel_id=chat.id,
-                channel_name=chat.title,
-                channel_username=chat.username,
-                channel_url=f"https://t.me/{chat.username}" if chat.username else None,
-                is_private=is_private,
-                can_read_posts=can_read
-            )
-            session.add(new_channel)
-            await session.commit()
+            await add_channel(session= session, chat= chat, is_private= is_private, can_read= can_read)
 
     elif new_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]:
+        logger.info("Детект удаления бота из канала!")
         async for session in get_db():
-            stmt = delete(Channel).where(Channel.channel_id == chat.id)
-            await session.execute(stmt)
-            await session.commit()
+            user_id = await get_user_id(session= session, chat= chat)
+            if not user_id:
+                logger.warning(f"[Удаление канала] Не найден пользователь для канала {chat.id} ({chat.title})")
+                return
+            await delete_channel(session= session, chat= chat)
+            await notify_users_remove(user_ids= user_id, chat= chat, bot= bot)
+            
+
 
 @manage_channel.channel_post()
 async def handle_channel_post(post: Message):

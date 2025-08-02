@@ -1,5 +1,6 @@
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from typing import List
+from aiogram.types import Chat
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User, Channel, UserChannel
 from sqlalchemy.dialects.postgresql import insert
@@ -46,6 +47,14 @@ async def add_user_channel(session: AsyncSession, user_id: int, user_input: str)
 
     new_relation = UserChannel(user_id=user_id, channel_id=channel.channel_id)
     session.add(new_relation)
+
+    await session.execute(
+        update(User)
+        .where(User.user_id == user_id)
+        .values(count_channel=User.count_channel + 1)
+    )
+
+
     await session.commit()
 
     return {"status": "added", "channel_name": channel.channel_name}
@@ -124,3 +133,44 @@ async def get_users_by_channel(session: AsyncSession, channel_id: int) -> List[i
     except Exception as e:
         print(f"Ошибка при поиске пользователей канала {channel_id}: {e}")
         return []
+    
+
+async def add_channel(
+    session: AsyncSession,
+    chat: Chat,
+    is_private: bool,
+    can_read: bool
+) -> Channel:
+    new_channel = Channel(
+        channel_id=chat.id,
+        channel_name=chat.title,
+        channel_username=chat.username,
+        channel_url=f"https://t.me/{chat.username}" if chat.username else None,
+        is_private=is_private,
+        can_read_posts=can_read
+    )
+    session.add(new_channel)
+    await session.commit()
+    return new_channel
+
+async def delete_channel(session: AsyncSession, chat: Chat) -> None:
+    stmt_users = select(UserChannel.user_id).where(UserChannel.channel_id == chat.id)
+    result = await session.execute(stmt_users)
+    user_ids = [row[0] for row in result.fetchall()]
+
+    if user_ids:
+        await session.execute(
+            update(User)
+            .where(User.user_id.in_(user_ids))
+            .values(count_channel=User.count_channel - 1)
+        )
+
+    await session.execute(
+        delete(UserChannel).where(UserChannel.channel_id == chat.id)
+    )
+
+    await session.execute(
+        delete(Channel).where(Channel.channel_id == chat.id)
+    )
+
+    await session.commit()
