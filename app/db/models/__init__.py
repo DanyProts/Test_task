@@ -1,1 +1,1 @@
-from .schemas import User, Channel, UserChannel
+from .schemas import User, Channel, UserChannel, PasswordHash

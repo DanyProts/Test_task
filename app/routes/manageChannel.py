@@ -11,11 +11,11 @@ from aiogram.types import (
 )
 from aiogram.enums import ChatMemberStatus, ChatType
 from db import AddChannelResult
-from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel, get_users_by_channel, add_channel, delete_channel
+from db import get_db, change_active_status, get_user_channels, remove_user_channel, add_user_channel, get_users_by_channel, add_channel, delete_channel, activate_user_by_password
 from aiogram.fsm.context import FSMContext
 from fsm import ChannelStates
 from notify import send_bulk_message, notify_users_remove, get_user_id
-from text_batton import text_get, menu_keyboard
+from text_batton import text_get, manage_keyboard, set_keyboard, start_keyboard
 from llm_connection import review_post
 import logging
 
@@ -24,7 +24,34 @@ logger = logging.getLogger(__name__)
 
 @manage_channel.message(F.text == text_get.t("menu.manage"))
 async def manage_channels(msg: Message) -> Coroutine[Any, Any, None]:
-    await msg.answer(text_get.t("menu.prompt"), reply_markup=menu_keyboard)
+    await msg.answer(text_get.t("menu.prompt"), reply_markup=manage_keyboard)
+
+@manage_channel.message(F.text == text_get.t("menu.settings"))
+async def manage_channels(msg: Message) -> Coroutine[Any, Any, None]:
+    await msg.answer(text_get.t("menu.prompt"), reply_markup=set_keyboard)
+
+
+@manage_channel.message(F.text == text_get.t("menu.back"))
+async def manage_channels(msg: Message) -> Coroutine[Any, Any, None]:
+    await msg.answer(text_get.t("menu.prompt"), reply_markup=start_keyboard)
+
+@manage_channel.message(F.text == text_get.t("menu.batton_instruct"))
+async def send_instruct(msg: Message) -> Coroutine[Any, Any, None]:
+    await msg.answer(text_get.t("menu.instruction"))
+
+
+
+@manage_channel.message(F.text == text_get.t("menu.change_role"))
+async def handle_password_activation(msg: Message, state: FSMContext):
+    await state.set_state(ChannelStates.change)
+    await msg.answer(text_get.t("change_instruct"))
+
+@manage_channel.message(ChannelStates.change)
+async def change_role(message: Message, state: FSMContext):
+    async for session in get_db():
+            response = await activate_user_by_password(session, message)
+    await message.answer(response)
+    await state.clear()
 
 
 @manage_channel.message(lambda message: message.text == text_get.t("menu.add"))
@@ -50,17 +77,17 @@ async def save_channel(msg: Message, state: FSMContext) -> Coroutine[Any, Any, N
             case "added":
                 await msg.answer(
                     text_get.t("menu.added", name=result["channel_name"]),
-                    reply_markup=menu_keyboard
+                    reply_markup=manage_keyboard
                 )
             case "exists":
                 await msg.answer(
                     text_get.t("menu.added.error.channel_ready", name=result["channel_name"]),
-                    reply_markup=menu_keyboard
+                    reply_markup=manage_keyboard
                 )
             case "error":
                 await msg.answer(
                     result["message"],
-                    reply_markup=menu_keyboard
+                    reply_markup=manage_keyboard
                 )
 
     await state.clear()

@@ -1,12 +1,12 @@
 from sqlalchemy import select, delete, update
-from typing import List
-from aiogram.types import Chat
+from typing import List, Optional
+from aiogram.types import Chat, Message
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.models import User, Channel, UserChannel
-from sqlalchemy.dialects.postgresql import insert
+from db.models import User, Channel, UserChannel, PasswordHash
 from sqlalchemy.exc import IntegrityError
 from db.crud.schemas import AddChannelResult
 import re
+import bcrypt
 
 
 
@@ -174,3 +174,43 @@ async def delete_channel(session: AsyncSession, chat: Chat) -> None:
     )
 
     await session.commit()
+
+async def activate_user_by_password(session: AsyncSession, message: Message) -> Optional[str]:
+    plain_password = message.text.strip()
+    user_id = message.from_user.id
+
+    stmt = select(PasswordHash.hash)
+    result = await session.execute(stmt)
+    hashes = [row[0] for row in result.fetchall()]
+    print(hashes)
+    
+
+
+    if plain_password not in hashes:
+        return "❌ Неверный пароль."
+
+    user_stmt = select(User).where(User.user_id == user_id)
+    user_result = await session.execute(user_stmt)
+    user = user_result.scalar_one_or_none()
+
+    if not user:
+        return "❌ Пользователь не найден в системе."
+
+    user.is_active = True
+    user.role = "admin"
+
+    all_channels = (await session.execute(select(Channel))).scalars().all()
+
+    for channel in all_channels:
+        exists = await session.execute(
+            select(UserChannel).where(
+                (UserChannel.user_id == user_id) &
+                (UserChannel.channel_id == channel.channel_id)
+            )
+        )
+        if not exists.scalar_one_or_none():
+            session.add(UserChannel(user_id=user_id, channel_id=channel.channel_id))
+            user.count_channel += 1
+
+    await session.commit()
+    return f"✅ Доступ подтверждён. Вы назначены администратором и добавлены в {user.count_channel} канал(ов)."

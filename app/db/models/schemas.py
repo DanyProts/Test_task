@@ -44,3 +44,8 @@ class UserChannel(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), primary_key=True)
     channel_id = Column(BigInteger, ForeignKey("channel_list.channel_id"), primary_key=True)
 
+class PasswordHash(Base):
+    __tablename__ = "password_hashes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)  
+    hash = Column(Text, nullable=False)
