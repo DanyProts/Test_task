@@ -1,5 +1,6 @@
 import httpx
 import logging
+from core import settings
 
 
 logger = logging.getLogger(__name__)
@@ -8,7 +9,7 @@ async def review_post(post_text: str) -> str:
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
-                "http://localhost:8001/channel_check",
+                str(settings.llm_server.url),
                 json={"channel_identifier": post_text}
             )
             response.raise_for_status()

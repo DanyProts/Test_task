@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class BotConfig(BaseModel):
     token: str
 
+class RequestLLm(BaseModel):
+    url: str
 class TelethonConfig(BaseModel):
     api_id: int
     api_hash:str
@@ -23,5 +25,6 @@ class Settings(BaseSettings):
     db: DatabaseConfig
     bot_token: BotConfig
     telethon_set: TelethonConfig
+    llm_server: RequestLLm
     
 settings = Settings()
