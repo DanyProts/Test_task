@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "app"
+version = "0.1.0"
+description = "This microservice connects the project logic with the llm model and organizes its entire operation"
+authors = ["DanyProts <protsenkodan@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "core" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+pydantic = ">=2.11.7,<3.0.0"
+pydantic-settings = ">=2.10.1,<3.0.0"
+asyncio = "^3.4.3"
+fastapi = "^0.116.1"
+uvicorn = {extras = ["standard"], version = "^0.35.0"}
+yandex-cloud-ml-sdk = "^0.13.1"
+httpx = "^0.28.1"
+
+
+[build-system]
+requires = ["poetry-core>=1.6.0"]
+build-backend = "poetry.core.masonry.api"

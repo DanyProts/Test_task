@@ -2,9 +2,10 @@ FROM python:3.11-alpine
 
 WORKDIR /app
 
+
 RUN apk add --no-cache gcc musl-dev libffi-dev openssl-dev make
 
-COPY pyproject.toml poetry.lock README.md ./
+COPY pyproject.toml poetry.lock README.md* ./
 
 
 RUN pip install --no-cache-dir poetry && \
@@ -13,5 +14,6 @@ RUN pip install --no-cache-dir poetry && \
 
 
 COPY . .
+
 
 CMD ["python", "main.py"]
